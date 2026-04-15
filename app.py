@@ -15,22 +15,23 @@ def download_csv():
     try:
         session = requests.Session()
 
-        # Step 1: Follow the Mandrill tracking link to get the real OrgMeter URL
+        # Step 1: Follow the Mandrill tracking link
         resp = session.get(mandrill_url, allow_redirects=True)
-
-        # The final URL should be like:
-        # https://app.orgmeter.com/download/file/{hash}
         final_url = resp.url
-        
-        # Extract the hash from the URL
-        if '/download/file/' in final_url:
-            file_hash = final_url.split('/download/file/')[-1].split('?')[0].split('#')[0]
-        else:
-            return {'error': f'Unexpected URL after redirect: {final_url}'}, 400
+
+        # Extract the hash from the URL (handles both /file/ and /auth/ patterns)
+        file_hash = None
+        for pattern in ['/download/file/', '/download/auth/']:
+            if pattern in final_url:
+                file_hash = final_url.split(pattern)[-1].split('/')[0].split('?')[0].split('#')[0]
+                break
+
+        if not file_hash:
+            return {'error': f'Could not extract hash from URL: {final_url}'}, 400
 
         # Step 2: POST the password to the auth endpoint
         auth_url = f'https://app.orgmeter.com/download/auth/{file_hash}/download'
-        
+
         form_data = {
             'secure_url_password[password]': password,
             'secure_url_password[type]': 'asset',
